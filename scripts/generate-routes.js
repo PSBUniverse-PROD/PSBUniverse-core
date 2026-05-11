@@ -8,8 +8,24 @@
  *
  * Developers NEVER touch src/app/ — this script does it for them.
  *
- * Usage:  node scripts/generate-routes.js
- * Also runs automatically via:  npm run dev  /  npm run build
+ * Usage:
+ *   node scripts/generate-routes.js                 — regenerate all route wrappers
+ *   npm run gen:routes                              — same thing via npm script
+ *   (also runs automatically on npm run dev / npm run build)
+ *
+ * Add a new page to an existing module:
+ *   node scripts/generate-routes.js newpage <module-index> <page-slug>
+ *   npm run new-page -- <module-index> <page-slug>
+ *
+ *   Examples:
+ *     npm run new-page -- modules/admin/gutter/index.js settings
+ *     npm run new-page -- modules/psbpages/dashboard/index.js analytics
+ *
+ *   This will:
+ *     1. Create pages/<PageSlug>Page.js   (server component)
+ *     2. Create pages/<PageSlug>View.jsx  (client component)
+ *     3. Add the route entry to the module's index.js
+ *     4. Run route generation to create the src/app/ wrapper
  */
 
 import fs from "node:fs";
@@ -266,10 +282,182 @@ function warnDbSync(moduleDefinitions) {
 }
 
 // ---------------------------------------------------------------------------
+// 10. Subcommand: newpage — scaffold a new page for an existing module
+//     Usage:  node scripts/generate-routes.js newpage <module-index> <page-slug>
+//     Example: node scripts/generate-routes.js newpage modules/admin/gutter/index.js settings
+//              npm run gen:routes -- newpage modules/admin/gutter/index.js settings
+// ---------------------------------------------------------------------------
+
+function toPascalCase(slug) {
+  return slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+}
+
+async function handleNewPage(args) {
+  const moduleIndexRel = args[0];
+  const pageSlug = args[1];
+
+  if (!moduleIndexRel || !pageSlug) {
+    console.error(`
+  Usage:  node scripts/generate-routes.js newpage <module-index> <page-slug>
+
+  Examples:
+    node scripts/generate-routes.js newpage modules/admin/gutter/index.js settings
+    npm run gen:routes -- newpage modules/admin/gutter/index.js settings
+
+  This will:
+    1. Create pages/SettingsPage.js  (server component)
+    2. Create pages/SettingsView.jsx (client component)
+    3. Add the route to your module's index.js
+    4. Run route generation to create the app wrapper
+    `);
+    process.exit(1);
+  }
+
+  // Resolve the module index path
+  const indexPath = path.resolve(ROOT, "src", moduleIndexRel);
+  if (!fs.existsSync(indexPath)) {
+    console.error(`  ERROR: Module index not found: ${indexPath}`);
+    console.error(`  Make sure the path is relative to src/, e.g. modules/admin/gutter/index.js`);
+    process.exit(1);
+  }
+
+  // Load the existing module definition to find the base route
+  let definition;
+  try {
+    definition = await loadModuleDefinition(indexPath);
+  } catch (err) {
+    console.error(`  ERROR loading module: ${err.message}`);
+    process.exit(1);
+  }
+
+  if (!definition?.routes?.length) {
+    console.error(`  ERROR: Module has no routes defined. Add at least one route first.`);
+    process.exit(1);
+  }
+
+  // Derive names
+  const pascal = toPascalCase(pageSlug);
+  const pageName = `${pascal}Page`;
+  const viewName = `${pascal}View`;
+  const moduleDir = path.dirname(indexPath);
+  const pagesDir = path.join(moduleDir, "pages");
+
+  // Derive the new route path from the module's base route
+  const baseRoute = definition.routes[0].path;
+  const newRoutePath = `${baseRoute}/${pageSlug}`;
+
+  // Check if route already exists
+  const existingRoute = definition.routes.find((r) => r.path === newRoutePath);
+  if (existingRoute) {
+    console.error(`  ERROR: Route "${newRoutePath}" already exists in this module.`);
+    process.exit(1);
+  }
+
+  // Check if page files already exist
+  const pageFile = path.join(pagesDir, `${pageName}.js`);
+  const viewFile = path.join(pagesDir, `${viewName}.jsx`);
+
+  if (fs.existsSync(pageFile)) {
+    console.error(`  ERROR: ${path.relative(ROOT, pageFile)} already exists.`);
+    process.exit(1);
+  }
+  if (fs.existsSync(viewFile)) {
+    console.error(`  ERROR: ${path.relative(ROOT, viewFile)} already exists.`);
+    process.exit(1);
+  }
+
+  // ── Create page files ───────────────────────────────────
+
+  if (!fs.existsSync(pagesDir)) fs.mkdirSync(pagesDir, { recursive: true });
+
+  const pageContent = `\
+/**
+ * Server Component — ${pageName}.js
+ *
+ * Runs on the server. Loads data, then passes it to the View.
+ *
+ * RULES:
+ *   - No useState, useEffect, or onClick here — those go in the View.
+ *   - Do NOT wrap JSX in try/catch (causes a React lint error).
+ */
+import ${viewName} from "./${viewName}";
+
+export const dynamic = "force-dynamic";
+
+export default async function ${pageName}() {
+  return <${viewName} />;
+}
+`;
+
+  const viewContent = `\
+/**
+ * Client Component — ${viewName}.jsx
+ *
+ * Runs in the browser. All UI, hooks, and interaction go here.
+ */
+"use client";
+
+export default function ${viewName}() {
+  return (
+    <main className="container py-4">
+      <h2>${pageSlug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}</h2>
+      <p className="text-muted">This page is ready for development.</p>
+    </main>
+  );
+}
+`;
+
+  fs.writeFileSync(pageFile, pageContent, "utf-8");
+  console.log(`  CREATE  ${path.relative(ROOT, pageFile)}`);
+
+  fs.writeFileSync(viewFile, viewContent, "utf-8");
+  console.log(`  CREATE  ${path.relative(ROOT, viewFile)}`);
+
+  // ── Add route to index.js ──────────────────────────────
+
+  const indexSource = fs.readFileSync(indexPath, "utf-8");
+  const newRouteEntry = `    { path: "${newRoutePath}", page: "${pageName}" },`;
+
+  // Find the last route entry line and insert after it
+  const routeLineRegex = /^(\s*\{[^}]*path:\s*"[^"]*"[^}]*page:\s*"[^"]*"[^}]*\},?\s*)$/gm;
+  let lastRouteMatch = null;
+  let match;
+  while ((match = routeLineRegex.exec(indexSource)) !== null) {
+    lastRouteMatch = match;
+  }
+
+  if (!lastRouteMatch) {
+    console.error(`  ERROR: Could not find existing route entries in index.js to insert after.`);
+    console.error(`  Please add the route manually:`);
+    console.error(`    ${newRouteEntry}`);
+    process.exit(1);
+  }
+
+  const insertPos = lastRouteMatch.index + lastRouteMatch[0].length;
+  const updatedSource =
+    indexSource.slice(0, insertPos) +
+    "\n" + newRouteEntry +
+    indexSource.slice(insertPos);
+
+  fs.writeFileSync(indexPath, updatedSource, "utf-8");
+  console.log(`  UPDATE  ${path.relative(ROOT, indexPath)}`);
+  console.log(`          Added route: ${newRoutePath} → ${pageName}\n`);
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
+  // Check for subcommand
+  const args = process.argv.slice(2).filter((a) => a !== "--");
+  if (args[0] === "newpage") {
+    await handleNewPage(args.slice(1));
+    // Fall through to normal route generation
+  }
+
   console.log("Generating route files...\n");
 
   const indexFiles = findModuleIndexFiles(MODULES_DIR);

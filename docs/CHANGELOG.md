@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-05-11 New Page Scaffolding Script
+
+Added a `newpage` subcommand to `generate-routes.js` so developers can add a new page to an existing module with one command.
+
+### Changes
+
+1. **Added `newpage` subcommand to `generate-routes.js`** — Creates the Page (server component) and View (client component) files, adds the route entry to the module's `index.js`, and runs route generation automatically.
+2. **Added `npm run new-page` script** — shortcut for `node scripts/generate-routes.js newpage`.
+
+### Usage
+
+```bash
+npm run new-page -- modules/admin/gutter/index.js settings
+```
+
+### Safety Checks
+
+- Errors if the module index.js doesn't exist
+- Errors if the route already exists in the module
+- Errors if the page files already exist
+- Shows help if arguments are missing
+
+### Documentation Updated
+
+- Quickstart, Getting Started, and Module System docs updated to reference `npm run new-page`.
+
+---
+
 ## 2026-05-09 Microfrontends, Route Sync & Automation Scripts
 
 Added Vercel Microfrontends support, automated route sync across all layers, and scripts to register external modular apps.

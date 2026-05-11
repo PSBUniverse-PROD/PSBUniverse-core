@@ -7,6 +7,7 @@
     "add-mfe": "node scripts/add-microfrontend.js",
     "create-module": "node scripts/create-module.js",
     "gen:routes": "node scripts/generate-routes.js",
+    "new-page": "node scripts/generate-routes.js newpage",
     "predev": "node scripts/generate-routes.js",
     "dev": "next dev --webpack",
     "prebuild": "node scripts/generate-routes.js",

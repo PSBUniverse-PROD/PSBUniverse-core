@@ -155,35 +155,32 @@ When a user visits `/metal-buildings`, Next.js finds the auto-generated route fi
 
 ## Adding More Pages
 
-Want a second page at `/metal-buildings/settings`?
+Want a second page at `/metal-buildings/settings`? Run one command:
 
-### Step 1: Add the route to `index.js`
+```bash
+npm run new-page -- modules/metal-buildings/index.js settings
+```
+
+This automatically:
+1. Creates `pages/SettingsPage.js` (server component)
+2. Creates `pages/SettingsView.jsx` (client component)
+3. Adds the route to your module's `index.js`
+4. Generates the `src/app/` route wrapper
+
+After running, your `index.js` routes will look like:
 
 ```javascript
 routes: [
   { path: "/metal-buildings", page: "MetalBuildingsPage" },
-  { path: "/metal-buildings/settings", page: "SettingsPage" },  // ← new
+  { path: "/metal-buildings/settings", page: "SettingsPage" },  // ← added by script
 ],
 ```
 
-### Step 2: Create the page files
+And you'll have two new files ready to edit:
 
 ```javascript
-// pages/SettingsPage.js — server entry
-import SettingsView from "./SettingsView.jsx";
-
-export default async function SettingsPage() {
-  return <SettingsView />;
-}
-```
-
-```javascript
-// pages/SettingsView.jsx — client UI
-"use client";
-
-export default function SettingsView() {
-  return <h1>Settings go here</h1>;
-}
+// pages/SettingsPage.js — server entry (loads data, passes to view)
+// pages/SettingsView.jsx — client UI (your code goes here)
 ```
 
 That's it. No other files to touch.

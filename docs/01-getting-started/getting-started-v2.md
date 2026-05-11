@@ -257,17 +257,23 @@ Think of it like a kitchen: the **Page** goes to the fridge and grabs ingredient
 
 ### 5.4 — Adding more pages
 
-Want `/metal-buildings/settings`? Add a route and create the files:
+Want `/metal-buildings/settings`? Run one command:
+
+```bash
+npm run new-page -- modules/metal-buildings/index.js settings
+```
+
+This creates `pages/SettingsPage.js` and `pages/SettingsView.jsx`, adds the route to your `index.js`, and generates the `src/app/` wrapper — all in one step.
+
+The route generator also runs automatically on `npm run dev` and `npm run build`.
 
 ```javascript
-// In index.js
+// Output in index.js
 routes: [
   { path: "/metal-buildings", page: "MetalBuildingsPage" },
   { path: "/metal-buildings/settings", page: "SettingsPage" },  // ← new
 ],
 ```
-
-Then create `pages/SettingsPage.js` and `pages/SettingsView.jsx`. The route generator handles the rest automatically on the next `npm run dev`.
 
 ### 5.5 — Database queries (Server Actions)
 

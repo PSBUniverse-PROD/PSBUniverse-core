@@ -594,7 +594,29 @@ If this is an external modular app, the **child repo's** `microfrontends.json` i
 
 ## Adding More Pages
 
-Add a route to `index.js` and create the corresponding page file:
+Use the `new-page` script to scaffold a new page:
+
+```bash
+npm run new-page -- modules/<group>/<module>/index.js <page-slug>
+```
+
+Example — add a "settings" page to an admin module:
+
+```bash
+npm run new-page -- modules/admin/my-module/index.js settings
+```
+
+This will:
+1. Create `pages/SettingsPage.js` (server component)
+2. Create `pages/SettingsView.jsx` (client component)
+3. Add `{ path: "/admin/my-module/settings", page: "SettingsPage" }` to `index.js`
+4. Run route generation to create the `src/app/` wrapper
+
+No other files need to change.
+
+### Manual alternative
+
+If you prefer to do it by hand, add a route to `index.js` and create the corresponding page files:
 
 ```js
 // index.js
@@ -621,8 +643,6 @@ export default function SettingsView() {
   return <h1>Settings</h1>;
 }
 ```
-
-No other files need to change.
 
 ---
 
