@@ -246,55 +246,76 @@ async function storeSessionRecord(authUserId, userId, token) {
     const supabaseAdmin = getSupabaseAdmin();
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const tokenHash = hashToken(token);
+
+    console.log(`[SessionStore] Attempting to store session for user ${userId}, authUser ${authUserId}`);
 
     // Check for an existing active session for this user
     const { data: existingSession, error: lookupError } = await supabaseAdmin
       .from('psb_sessions')
-      .select('id')
+      .select('id, token_hash')
       .eq('auth_user_id', authUserId)
       .eq('user_id', userId)
       .eq('is_active', true)
       .maybeSingle();
 
     if (lookupError) {
-      console.warn('Session lookup warning:', lookupError.message);
+      console.error('[SessionStore] Lookup error:', lookupError);
       // Fall back to insert if lookup fails
-      await supabaseAdmin.from('psb_sessions').insert({
+      const { error: insertError } = await supabaseAdmin.from('psb_sessions').insert({
         auth_user_id: authUserId,
         user_id: userId,
-        token_hash: hashToken(token),
+        token_hash: tokenHash,
         created_at: now,
         expires_at,
         is_active: true,
       });
+
+      if (insertError) {
+        console.error('[SessionStore] Insert error (fallback):', insertError);
+      } else {
+        console.log(`[SessionStore] Inserted new session for user ${userId}`);
+      }
       return;
     }
 
     if (existingSession?.id) {
       // Update the existing active session — prevents duplicate rows
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from('psb_sessions')
         .update({
-          token_hash: hashToken(token),
+          token_hash: tokenHash,
           expires_at,
           last_activity_at: now,
           updated_at: now,
         })
         .eq('id', existingSession.id);
+
+      if (updateError) {
+        console.error('[SessionStore] Update error:', updateError);
+      } else {
+        console.log(`[SessionStore] Updated existing session ${existingSession.id} for user ${userId}`);
+      }
     } else {
       // No active session found — create a new one
-      await supabaseAdmin.from('psb_sessions').insert({
+      const { error: insertError } = await supabaseAdmin.from('psb_sessions').insert({
         auth_user_id: authUserId,
         user_id: userId,
-        token_hash: hashToken(token),
+        token_hash: tokenHash,
         created_at: now,
         expires_at,
         is_active: true,
       });
+
+      if (insertError) {
+        console.error('[SessionStore] Insert error (new):', insertError);
+      } else {
+        console.log(`[SessionStore] Inserted new session for user ${userId}`);
+      }
     }
   } catch (error) {
     // Table might not exist yet, log and continue
-    console.warn('Session record storage warning:', error.message);
+    console.error('[SessionStore] Unexpected error:', error);
   }
 }
 

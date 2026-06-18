@@ -17,7 +17,13 @@ export async function GET(request) {
     if (!token) {
       return NextResponse.json(
         { valid: false, error: 'No session token found' },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
       );
     }
 
@@ -28,7 +34,13 @@ export async function GET(request) {
     } catch (error) {
       return NextResponse.json(
         { valid: false, error: error.message },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
       );
     }
 
@@ -37,7 +49,13 @@ export async function GET(request) {
     if (invalidated) {
       return NextResponse.json(
         { valid: false, error: 'Session has been invalidated' },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
       );
     }
 
@@ -55,13 +73,25 @@ export async function GET(request) {
           expiresAt: payload.expiresAt,
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
     );
   } catch (error) {
     console.error('Token validation error:', error);
     return NextResponse.json(
       { valid: false, error: 'Internal server error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
     );
   }
 }
@@ -74,7 +104,13 @@ export async function POST(request) {
     if (!token) {
       return NextResponse.json(
         { valid: false, error: 'Token is required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
       );
     }
 
@@ -85,7 +121,13 @@ export async function POST(request) {
     } catch (error) {
       return NextResponse.json(
         { valid: false, error: error.message },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
       );
     }
 
@@ -94,7 +136,13 @@ export async function POST(request) {
     if (invalidated) {
       return NextResponse.json(
         { valid: false, error: 'Session has been invalidated' },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
       );
     }
 
@@ -112,13 +160,25 @@ export async function POST(request) {
           expiresAt: payload.expiresAt,
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
     );
   } catch (error) {
     console.error('Token validation error:', error);
     return NextResponse.json(
       { valid: false, error: 'Internal server error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
     );
   }
 }
@@ -129,8 +189,10 @@ export async function OPTIONS(request) {
     {
       status: 200,
       headers: {
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Credentials': 'true',
       },
     }
   );
