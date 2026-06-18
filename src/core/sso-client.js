@@ -10,6 +10,18 @@
 const CORE_PORTAL_URL = process.env.NEXT_PUBLIC_CORE_PORTAL_URL || "https://psbuniverse.com";
 const MODULE_ID = process.env.NEXT_PUBLIC_MODULE_ID;
 
+// Normalize core portal URL to avoid redirect issues (strip trailing slash, ensure protocol)
+function normalizeBaseUrl(url) {
+  const trimmed = String(url || "").trim().replace(/\/$/, "");
+  if (!trimmed) return "https://psbuniverse.com";
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+const NORMALIZED_CORE_PORTAL_URL = normalizeBaseUrl(CORE_PORTAL_URL);
+
 /**
  * Validate session token with Core Portal via cookie (GET request).
  * The browser automatically sends the psb_session cookie to the Core Portal
@@ -19,13 +31,26 @@ const MODULE_ID = process.env.NEXT_PUBLIC_MODULE_ID;
  */
 export async function validateSessionToken() {
   try {
-    const response = await fetch(`${CORE_PORTAL_URL}/api/auth/validate-token`, {
+    const response = await fetch(`${NORMALIZED_CORE_PORTAL_URL}/api/auth/validate-token`, {
       method: "GET",
       credentials: "include", // Sends cookies cross-origin (psb_session)
       headers: {
         Accept: "application/json",
       },
+      redirect: "manual", // Don't follow redirects — we need to detect them
     });
+
+    // Handle redirects manually to avoid CORS issues
+    if (response.status === 301 || response.status === 302 || response.status === 308) {
+      const location = response.headers.get("location");
+      console.error(
+        `[SSO] Redirect detected (${response.status}) to ${location}. ` +
+        `Fix: Set NEXT_PUBLIC_CORE_PORTAL_URL to the exact origin that serves the API without redirects. ` +
+        `Current value: "${NORMALIZED_CORE_PORTAL_URL}". ` +
+        `If your site redirects to www or HTTPS, use that final URL instead.`
+      );
+      return null;
+    }
 
     if (!response.ok) {
       return null;
@@ -50,14 +75,23 @@ export async function validateTokenString(token) {
   if (!token) return null;
 
   try {
-    const response = await fetch(`${CORE_PORTAL_URL}/api/auth/validate-token`, {
+    const response = await fetch(`${NORMALIZED_CORE_PORTAL_URL}/api/auth/validate-token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify({ token }),
+      redirect: "manual",
     });
+
+    if (response.status === 301 || response.status === 302 || response.status === 308) {
+      const location = response.headers.get("location");
+      if (location) {
+        console.warn(`[SSO] Redirect detected (${response.status}) to ${location}. Update NEXT_PUBLIC_CORE_PORTAL_URL to the final destination.`);
+      }
+      return null;
+    }
 
     if (!response.ok) {
       return null;
@@ -124,9 +158,10 @@ export async function getCurrentSession() {
  */
 export async function logout() {
   try {
-    await fetch(`${CORE_PORTAL_URL}/api/auth/logout`, {
+    await fetch(`${NORMALIZED_CORE_PORTAL_URL}/api/auth/logout`, {
       method: "POST",
       credentials: "include",
+      redirect: "manual",
     });
   } catch (error) {
     console.error("SSO logout error:", error);
@@ -141,7 +176,7 @@ export async function logout() {
  * @param {string} [returnPath] - Path to return to after login (e.g., "/gutter/dashboard")
  */
 export function redirectToLogin(returnPath) {
-  const loginUrl = new URL("/login", CORE_PORTAL_URL);
+  const loginUrl = new URL("/login", NORMALIZED_CORE_PORTAL_URL);
 
   if (returnPath) {
     const trimmed = String(returnPath || "").trim();
